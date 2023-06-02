@@ -3,45 +3,92 @@
  * @param {string} element - The DOM element to replace by the article.
  */
 function jowiki(element) {
+  // Get the language code of the browser
   const languageCode = navigator.language.substring(0, 2);
+
+  // Construct the URL to retrieve a random article in the browser's language
   const url = `https://${languageCode}.wikipedia.org/w/api.php?action=query&list=random&format=json&rnnamespace=0&rnlimit=1&callback=processRandomArticle`;
 
-  window.processRandomArticle = function(data) {
+  // Define a global function to handle the JSONP response
+  window.processRandomArticle = function (data) {
     const pageId = data.query.random[0].id;
+
+    // Construct the URL to the HTML content of the article
     const htmlUrl = `https://${languageCode}.wikipedia.org/w/api.php?action=parse&pageid=${pageId}&format=json&callback=processArticleHTML`;
-    
-    window.processArticleHTML = function(data) {
+
+    // Define a global function to handle the JSONP response
+    window.processArticleHTML = function (data) {
       const htmlContent = data.parse.text["*"];
       const title = data.parse.title;
-      const containerElement = document.createElement('div');
-      const headingElement = document.createElement('h1');
+
+      // Create a container element and set its innerHTML to the HTML content of the article
+      const containerElement = document.createElement("div");
+      const headingElement = document.createElement("h1");
       headingElement.textContent = title;
       containerElement.appendChild(headingElement);
-      containerElement.innerHTML+= htmlContent;
+      containerElement.innerHTML += htmlContent;
 
-      const maxParagraphs = element.dataset.joParagraphs;
-      if (maxParagraphs) {
-        const paragraphs = containerElement.getElementsByTagName('p');
-        for (let i = maxParagraphs; i < paragraphs.length; i++) {
-          paragraphs[i].style.display = 'none';
+      // Limit the length of the text content
+      const maxLength = element.dataset.joMaxLength;
+      if (maxLength) {
+        let totalTextLength = 0;
+        const nodeStack = [containerElement];
+        while (nodeStack.length > 0 && totalTextLength < maxLength) {
+          const node = nodeStack.pop();
+          if (node.nodeType === Node.TEXT_NODE) {
+            const textContent = node.textContent.trim();
+            totalTextLength += textContent.length;
+          } else if (node.nodeType === Node.ELEMENT_NODE) {
+            const childNodes = Array.from(node.childNodes);
+            for (let i = childNodes.length - 1; i >= 0; i--) {
+              nodeStack.push(childNodes[i]);
+            }
+          }
+        }
+        // Remove remaining nodes if any
+        while (nodeStack.length > 0) {
+          const node = nodeStack.pop();
+          if (node.nodeType === Node.TEXT_NODE) {
+            const textContent = node.textContent.trim();
+            if (totalTextLength > maxLength) {
+              const diff = totalTextLength - maxLength;
+              if (textContent.length <= diff) {
+                node.parentNode.removeChild(node);
+                totalTextLength -= textContent.length;
+              } else {
+                node.textContent = textContent.slice(0, textContent.length - diff);
+                totalTextLength -= diff;
+              }
+            } else {
+              totalTextLength += textContent.length;
+            }
+          } else if (node.nodeType === Node.ELEMENT_NODE) {
+            if (node.childNodes.length === 0) {
+              node.parentNode.removeChild(node);
+            }
+          }
         }
       }
 
       element.appendChild(containerElement);
 
+      // Clean up global functions
       delete window.processRandomArticle;
       delete window.processArticleHTML;
     };
 
-    const scriptElement = document.createElement('script');
+    // Add a script element to the page to load the HTML content of the article
+    const scriptElement = document.createElement("script");
     scriptElement.src = htmlUrl;
     document.body.appendChild(scriptElement);
   };
 
-  const scriptElement = document.createElement('script');
+  // Add a script element to the page to load the random article data
+  const scriptElement = document.createElement("script");
   scriptElement.src = url;
   document.body.appendChild(scriptElement);
 }
+
 
 /**
  * Create a placeholder image and add it to the specified element
@@ -81,14 +128,13 @@ function joimg(element) {
   }
 }
 
-window.addEventListener('load', function() {
+window.addEventListener('load', function () {
   const wikiTags = document.querySelectorAll('[data-jo="wiki"]');
   for (const tag of wikiTags) {
-      jowiki(tag);
+    jowiki(tag);
   }
   const imgTags = document.querySelectorAll('[data-jo="img"]');
   for (const tag of imgTags) {
     joimg(tag);
   }
 });
-  
