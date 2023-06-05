@@ -125,6 +125,7 @@ function joimg(element) {
   if (photo) {
     const photoUrl = 'https://loremflickr.com/${width}/${height}/${photo}';
     element.style.background = 'no-repeat url(${photoUrl})';
+    element.style.backgroundSize = 'cover';
   }
 }
 
